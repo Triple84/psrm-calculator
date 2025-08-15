@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Position Size & Risk Calculator</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f7f7f7; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 40px auto; background: #fff; padding: 24px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    h2 { margin-bottom: 16px; }
+    label { display: block; margin-top: 16px; font-weight: bold; }
+    input, select { width: 100%; padding: 8px; margin-top: 4px; border-radius: 4px; border: 1px solid #ccc; }
+  .radio-group { display: flex; gap: 4px; margin-top: 8px; }
+    .confluence-group {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      background: #fafafa;
+      margin-top: 8px;
+    }
+    .radio-label {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      margin-bottom: 0;
+      font-weight: normal;
+    }
+    .radio-label span {
+      margin-left: 6px;
+    }
+    button { width: 100%; padding: 12px; margin-top: 24px; background: #007bff; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 18px; }
+    button:hover { background: #0056b3; }
+    .result-section { margin-top: 32px; }
+    .result-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+    .result-table th, .result-table td { padding: 8px; text-align: left; }
+    .result-table th { background: #f1f5f9; color: #64748b; font-weight: bold; }
+    .result-table tr:nth-child(2) { background: #d1fae5; }
+    .result-table tr:nth-child(3) { background: #bae6fd; }
+    .result-table tr:nth-child(4) { background: #fed7aa; }
+    .analysis-section { background: #dcfce7; padding: 16px; border-radius: 8px; margin-bottom: 16px; }
+    .analysis-table { width: 100%; border-collapse: collapse; }
+    .analysis-table td { padding: 6px; }
+    .analysis-table .label { font-weight: bold; }
+    .analysis-table .value { text-align: right; }
+    .analysis-table .red { color: #dc2626; }
+    .analysis-table .green { color: #16a34a; }
+    .analysis-table .direction { background: #fecaca; color: #b91c1c; padding: 2px 8px; border-radius: 4px; }
+    .analysis-table .direction.long { background: #bbf7d0; color: #166534; }
+    .rules-section { background: #fef3c7; padding: 12px; border-radius: 8px; border: 1px solid #fde68a; }
+    .rules-section h3 { color: #b45309; margin-bottom: 6px; }
+    .rules-section div { color: #92400e; font-size: 14px; text-align: left; }
+    @media (max-width: 700px) {
+      .container { max-width: 100%; margin: 0; border-radius: 0; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Position Size & Risk Calculator</h2>
+    <label>Account Size ($)
+      <input type="number" id="accountSize" min="0" step="any">
+    </label>
+    <label>Entry Price
+      <input type="number" id="entryPrice" min="0" step="any">
+    </label>
+    <label>Stop Loss Price
+      <input type="number" id="stopPrice" min="0" step="any">
+    </label>
+    <label>Position Direction</label>
+    <div class="radio-group" style="border:1px solid #ddd; border-radius:6px; padding:12px; background:#fafafa; margin-bottom:16px;">
+      <table style="width:100%;border:none;background:none;">
+        <tr>
+          <td style="width:32px;"><input type="radio" name="direction" value="long" checked></td>
+          <td style="text-align:left;">📈 Long Position</td>
+          <td style="width:32px;"><input type="radio" name="direction" value="short"></td>
+          <td style="text-align:left;">📉 Short Position</td>
+        </tr>
+      </table>
+    </div>
+    <label>Confluence Type</label>
+    <div class="confluence-group" style="border:1px solid #ddd; border-radius:6px; padding:12px; background:#fafafa;">
+      <table style="width:100%;border:none;background:none;">
+        <tr>
+          <td style="width:32px;"><input type="radio" name="confluence" value="A"></td>
+          <td style="text-align:left;">Type A: Perfect Confluence (S/R + 50 EMA)</td>
+        </tr>
+        <tr>
+          <td><input type="radio" name="confluence" value="B" checked></td>
+          <td style="text-align:left;">Type B: Good Confluence (Dynamic Support)</td>
+        </tr>
+        <tr>
+          <td><input type="radio" name="confluence" value="C"></td>
+          <td style="text-align:left;">Type C: Minimum Confluence (S/R Only)</td>
+        </tr>
+      </table>
+    </div>
+    <button onclick="calculatePosition()">Calculate</button>
+    <div id="output" class="result-section"></div>
+  </div>
+  <script>
+    function calculatePosition() {
+      const account = parseFloat(document.getElementById('accountSize').value);
+      const entry = parseFloat(document.getElementById('entryPrice').value);
+      const stop = parseFloat(document.getElementById('stopPrice').value);
+      const direction = document.querySelector('input[name=\"direction\"]:checked').value;
+      const confluenceType = document.querySelector('input[name=\"confluence\"]:checked').value;
+      const output = document.getElementById('output');
+      output.innerHTML = '';
+      if (!account || !entry || !stop) {
+        output.innerHTML = '<div style=\"color:#b91c1c;\">Please fill in all fields with valid numbers.</div>';
+        return;
+      }
+      const riskPercentages = {
+        'A': { min: 1.0, max: 3.0, standard: 2.0, label: 'Perfect Confluence (S/R + 50 EMA)' },
+        'B': { min: 1.0, max: 2.0, standard: 1.5, label: 'Good Confluence (Dynamic Support)' },
+        'C': { min: 0.5, max: 1.0, standard: 0.75, label: 'Minimum Confluence (S/R Only)' }
+      };
+      const riskParams = riskPercentages[confluenceType] || riskPercentages['B'];
+      const riskPerShare = Math.abs(entry - stop);
+      const isValidSetup = direction === 'long' ? stop < entry : stop > entry;
+      if (!isValidSetup) {
+        output.innerHTML = '<div style=\"background:#fee2e2;border:1px solid #fecaca;padding:8px;border-radius:6px;color:#b91c1c;margin-bottom:10px;\">' +
+          '<b>Invalid Setup:</b> ' + (direction === 'long' ? 'Stop loss must be below entry price' : 'Stop loss must be above entry price') + '</div>';
+        return;
+      }
+      const minRiskAmount = account * (riskParams.min / 100);
+      const standardRiskAmount = account * (riskParams.standard / 100);
+      const maxRiskAmount = account * (riskParams.max / 100);
+      const minShares = Math.floor(minRiskAmount / riskPerShare);
+      const standardShares = Math.floor(standardRiskAmount / riskPerShare);
+      const maxShares = Math.floor(maxRiskAmount / riskPerShare);
+      const minPositionValue = minShares * entry;
+      const standardPositionValue = standardShares * entry;
+      const maxPositionValue = maxShares * entry;
+      const target1 = direction === 'long' ? entry + (riskPerShare * 2) : entry - (riskPerShare * 2);
+      const target2 = direction === 'long' ? entry + (riskPerShare * 3) : entry - (riskPerShare * 3);
+      output.innerHTML = `
+        <div>
+          <h2 style='color:#2563eb;margin-bottom:8px;'>Position Size Options</h2>
+          <table class='result-table'>
+            <tr><th>Risk Level</th><th>Shares</th><th>Position Value</th></tr>
+            <tr><td>Conservative</td><td>${minShares}</td><td>$${minPositionValue.toLocaleString()}</td></tr>
+            <tr><td>Standard</td><td>${standardShares}</td><td>$${standardPositionValue.toLocaleString()}</td></tr>
+            <tr><td>Aggressive</td><td>${maxShares}</td><td>$${maxPositionValue.toLocaleString()}</td></tr>
+          </table>
+        </div>
+        <div class='analysis-section'>
+          <h2 style='color:#16a34a;margin-bottom:8px;'>Risk & Reward Analysis</h2>
+          <table class='analysis-table'>
+            <tr><td class='label'>Position Direction:</td><td class='value'><span class='direction${direction === 'long' ? ' long' : ''}'>${direction === 'long' ? '📈 Long' : '📉 Short'}</span></td></tr>
+            <tr><td class='label'>Risk per Share:</td><td class='value'>$${riskPerShare.toFixed(2)}</td></tr>
+            <tr><td class='label'>Risk Range (Type ${confluenceType}):</td><td class='value'>${riskParams.min}% - ${riskParams.max}%</td></tr>
+            <tr><td class='label'>Standard Risk Amount:</td><td class='value red'>$${(standardShares * riskPerShare).toFixed(2)} (${riskParams.standard}%)</td></tr>
+            <tr><td colspan='2'><hr></td></tr>
+            <tr><td class='label'>Target 1 (2:1 R/R):</td><td class='value green'>$${target1.toFixed(2)}</td></tr>
+            <tr><td class='label'>Target 2 (3:1 R/R):</td><td class='value green'>$${target2.toFixed(2)}</td></tr>
+            <tr><td class='label'>Potential Profit (Target 1):</td><td class='value green'>$${(standardShares * riskPerShare * 2).toFixed(2)}</td></tr>
+          </table>
+        </div>
+        <div class='rules-section'>
+          <h3>Risk Management Rules</h3>
+          <div>
+            Never risk more than the maximum % for your confluence type<br>
+            Start with conservative sizing until you prove the system works<br>
+            Maximum 6-8% total account exposure across all positions<br>
+            Set stop loss orders immediately after entry<br>
+            Scale out at Target 1, let remainder run to Target 2
+          </div>
+          <div style='margin-top:8px;font-style:italic;'>${riskParams.label}</div>
+        </div>
+      `;
+    }
+  </script>
+</body>
+</html>
